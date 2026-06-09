@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Виртуальная примерка одежды</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f7;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .phone-container {
+            width: 100%;
+            max-width: 375px;
+            background: white;
+            border-radius: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 22px;
+            text-align: center;
+            color: #1d1d1f;
+            margin-bottom: 24px;
+        }
+        .upload-section {
+            background: #fbfbfd;
+            border: 2px dashed #d2d2d7;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .upload-section:hover {
+            border-color: #0071e3;
+            background: #f5f5f7;
+        }
+        .upload-section p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            color: #86868b;
+        }
+        .preview-img {
+            width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            border-radius: 8px;
+            display: none;
+            margin-top: 10px;
+        }
+        .btn-submit {
+            width: 100%;
+            background-color: #0071e3;
+            color: white;
+            border: none;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+            transition: background-color 0.2s ease;
+        }
+        .btn-submit:hover {
+            background-color: #0077ed;
+        }
+        #status-message {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #1d1d1f;
+            font-weight: 500;
+            word-break: break-word;
+        }
+        .result-section {
+            margin-top: 20px;
+            text-align: center;
+            display: none;
+        }
+        .result-section h3 {
+            font-size: 16px;
+            color: #1d1d1f;
+            margin-bottom: 10px;
+        }
+        #result-img {
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="phone-container">
+    <h1>Smart Try-On 👕</h1>
+    
+    <!-- Фото человека -->
+    <div class="upload-section" onclick="document.getElementById('person-input').click()">
+        <span style="font-size: 32px;">📸</span>
+        <p id="person-text">Загрузить фото человека</p>
+        <input type="file" id="person-input" accept="image/*" style="display:none" onchange="previewFile(this, 'person-preview', 'person-text', 'Фото человека выбрано')">
+        <img id="person-preview" class="preview-img">
+    </div>
+
+    <!-- Фото одежды -->
+    <div class="upload-section" onclick="document.getElementById('garment-input').click()">
+        <span style="font-size: 32px;">👔</span>
+        <p id="garment-text">Загрузить фото одежды на плоскости</p>
+        <input type="file" id="garment-input" accept="image/*" style="display:none" onchange="previewFile(this, 'garment-preview', 'garment-text', 'Фото одежды выбрано')">
+        <img id="garment-preview" class="preview-img">
+    </div>
+
+    <button class="btn-submit" onclick="sendToBackend()">Примерить одежду</button>
+    
+    <div id="status-message"></div>
+
+    <!-- Результат примерки -->
+    <div id="result-block" class="result-section">
+        <h3>Ваш результат примерки:</h3>
+        <img id="result-img" src="" alt="Результат">
+    </div>
+</div>
+
+<script>
+    // 1. Отображение картинок в интерфейсе
+    function previewFile(input, previewId, textId, successText) {
+        const preview = document.getElementById(previewId);
+        const text = document.getElementById(textId);
+        
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                text.innerText = successText;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // 2. Отправка изображений на сервер Python
+    async function sendToBackend() {
+        const personInput = document.getElementById('person-input');
+        const garmentInput = document.getElementById('garment-input');
+        const statusMessage = document.getElementById('status-message');
+        const resultBlock = document.getElementById('result-block');
+        const resultImg = document.getElementById('result-img');
+
+        if (!personInput.files[0] || !garmentInput.files[0]) {
+            statusMessage.style.color = '#ff3b30';
+            statusMessage.innerText = 'Пожалуйста, загрузите оба фото!';
+            return;
+        }
+
+        statusMessage.style.color = '#0071e3';
+        statusMessage.innerText = 'Отправка фотографий на сервер...';
+        resultBlock.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('person_photo', personInput.files[0]);
+        formData.append('clothing_photo', garmentInput.files[0]);
+
+        try {
+            // Строго правильный локальный адрес бэкенда
+            const response = await fetch('http://127.0.0', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                statusMessage.style.color = '#34c759';
+                statusMessage.innerText = data.message || 'Обработка завершена успешно!';
+                
+                // Временно дублируем фото, пока сервер работает в режиме заглушки
+                resultImg.src = document.getElementById('person-preview').src;
+                resultBlock.style.display = 'block';
+                
+            } else {
+                statusMessage.style.color = '#ff3b30';
+                statusMessage.innerText = `Ошибка сервера: Статус ${response.status}.`;
+            }
+        } catch (error) {
+            statusMessage.style.color = '#ff3b30';
+            statusMessage.innerText = 'Не удалось связаться с сервером. Убедитесь, что сервер запущен в терминале!';
+            console.error('Ошибка отправки:', error);
+        }
+    }
+</script>
+
+</body>
+</html>
